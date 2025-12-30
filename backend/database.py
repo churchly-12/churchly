@@ -21,6 +21,10 @@ users_collection = db.users
 parishes_collection = db.parishes
 prayers_collection = db.prayers
 prayer_responses_collection = db.prayer_responses
+prayer_reactions_collection = db.prayer_reactions
+testimony_reactions_collection = db.testimony_reactions
+testimonies_collection = db.testimonies
+notifications_collection = db.notifications
 announcements_collection = db.announcements
 events_collection = db.events
 roles_collection = db.roles
@@ -43,6 +47,22 @@ async def init_db():
     await prayer_responses_collection.create_index("prayer_id")
     await prayer_responses_collection.create_index("is_approved")
     await prayer_responses_collection.create_index("expires_at", expireAfterSeconds=0)
+
+    # Prayer reactions indexes
+    await prayer_reactions_collection.create_index([("prayer_id", 1), ("user_id", 1)], unique=True)
+    await prayer_reactions_collection.create_index("prayer_id")
+
+    # Testimonies indexes
+    await testimonies_collection.create_index("user_id")
+    await testimonies_collection.create_index([("created_at", -1)])
+
+    # Testimony reactions indexes
+    await testimony_reactions_collection.create_index([("testimony_id", 1), ("user_id", 1)], unique=True)
+    await testimony_reactions_collection.create_index("testimony_id")
+
+    # Notifications indexes
+    await notifications_collection.create_index("user_id")
+    await notifications_collection.create_index([("created_at", -1)])
 
     # Announcements indexes
     await announcements_collection.create_index("parish_id")

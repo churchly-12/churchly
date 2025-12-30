@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { getTestimonialById, updateTestimonial } from "../../utils/testimonialStorage";
+import { getTestimonyById, reactToTestimony } from "../../services/testimonyService";
+import { getTestimonialById, updateTestimonial } from "../../utils/testimonialStorage"; // for responses
 
 export default function TestimonialDetails() {
   const { id } = useParams();

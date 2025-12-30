@@ -1,6 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { getPrayerById, respondToPrayer } from "../services/prayerService";
 
+const REACTIONS = [
+  { type: "prayed", icon: "🙏", label: "Prayed" },
+  { type: "amen", icon: "✝️", label: "Amen" },
+  { type: "peace", icon: "🕊️", label: "Peace" }
+]
+
 export default function PrayerDetails({ prayerId }) {
   const [prayer, setPrayer] = useState(null);
   const [responseText, setResponseText] = useState("");

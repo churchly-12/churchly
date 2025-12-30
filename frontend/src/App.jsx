@@ -29,7 +29,6 @@ import PrayerWall from "./pages/users/PrayerWall";
 import NewPrayerRequest from "./pages/users/NewPrayerRequest";
 import Testimonials from "./pages/users/Testimonials";
 import NewTestimonial from "./pages/users/NewTestimonial";
-import TestimonialDetails from "./pages/users/TestimonialDetails";
 import CommunityPage from "./pages/users/CommunityPage";
 import Profile from "./pages/users/Profile";
 import EditFullName from "./pages/users/edit/EditFullName";
@@ -236,15 +235,6 @@ function AppContent() {
                 <TopBar />
                 <div className="p-4 pb-20 min-h-screen bg-[#f7efe6] text-[#3b2a20] pt-20">
                   <NewTestimonial />
-                </div>
-                <BottomNav />
-              </>
-            } />
-            <Route path="/users/testimonials/:id" element={
-              <>
-                <TopBar />
-                <div className="p-4 pb-20 min-h-screen bg-[#f7efe6] text-[#3b2a20] pt-20">
-                  <TestimonialDetails />
                 </div>
                 <BottomNav />
               </>

@@ -36,3 +36,23 @@ export async function fetchParishes() {
     return [];
   }
 }
+
+export async function reactToPrayer(id, reaction) {
+  const res = await apiClient.post(`${API_BASE}/react/${id}`, { reaction });
+  return res.data;
+}
+
+export async function fetchNotifications() {
+  try {
+    const res = await apiClient.get(`${API_BASE}/notifications`);
+    return res.data.success ? res.data.notifications : [];
+  } catch (err) {
+    console.error("Failed to fetch notifications:", err);
+    return [];
+  }
+}
+
+export async function markNotificationsRead() {
+  const res = await apiClient.post(`${API_BASE}/notifications/mark-read`);
+  return res.data;
+}
