@@ -9,7 +9,7 @@ from models.notification import NotificationCreate
 from dependencies.auth import get_current_user
 import asyncio
 import json
-import jwt
+from jose import JWTError, jwt
 from utils.security import SECRET_KEY, ALGORITHM
 
 router = APIRouter(prefix="/api/testimonies", tags=["Testimonies"])
@@ -226,7 +226,7 @@ async def stream_testimony_events(token: str = None):
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
-    except jwt.InvalidTokenError:
+    except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
     async def event_generator():
         while True:

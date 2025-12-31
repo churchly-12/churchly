@@ -16,7 +16,7 @@ from database import (
 )
 from dependencies.auth import get_current_user
 from utils.permissions import require_permission
-from utils import hash_password
+from utils.security import hash_password
 from services.audit_service import log_admin_action
 from data.role_presets import get_role_preset
 from core.admin_rate_limiter import limiter

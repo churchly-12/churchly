@@ -1,7 +1,7 @@
 import asyncio
 from database import db
 from datetime import datetime
-from utils import hash_password
+from utils.security import hash_password
 
 async def create_admin():
     # Check if admin user exists

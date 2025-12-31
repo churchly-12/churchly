@@ -12,7 +12,7 @@ from dependencies.auth import get_current_user
 from utils.permissions import require_permission
 import asyncio
 import json
-import jwt
+from jose import JWTError, jwt
 from utils.security import SECRET_KEY, ALGORITHM
 
 def convert_objectids(obj):
@@ -307,7 +307,7 @@ async def stream_prayer_events(token: str = None):
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
-    except jwt.InvalidTokenError:
+    except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
     async def event_generator():
         while True:
