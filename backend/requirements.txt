@@ -9,3 +9,4 @@ motor
 slowapi
 httpx
 python-dotenv
+gunicorn
