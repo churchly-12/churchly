@@ -10,6 +10,8 @@ class Notification(BaseModel):
     type: NotificationType
     message: str
     is_read: bool = False
+    is_deleted: bool = False
+    deleted_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.utcnow())
     related_id: Optional[str] = None  # e.g., prayer_id
 

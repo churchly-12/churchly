@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, Image } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 
 export default function AdminLoginScreen({ navigation }) {
@@ -18,6 +18,9 @@ export default function AdminLoginScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.logoContainer}>
+        <Image source={require('../../../assets/churchly-logo.png')} style={styles.logo} />
+      </View>
       <Text style={styles.title}>Admin Login</Text>
       <TextInput
         style={styles.input}
@@ -50,6 +53,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 20,
     backgroundColor: '#f7efe6',
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  logo: {
+    width: 180,
+    height: 180,
   },
   title: {
     fontSize: 24,

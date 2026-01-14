@@ -12,6 +12,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
+import { fetchPrayers } from '../../services/prayerService';
 import apiClient from '../../api/apiClient';
 
 export default function PrayerManagement() {
@@ -24,11 +25,11 @@ export default function PrayerManagement() {
   const [totalPages, setTotalPages] = useState(1);
   const [selectedPrayer, setSelectedPrayer] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('all'); // all, approved, unapproved
+  const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
     fetchPrayers();
-  }, [currentPage, filterStatus]);
+  }, [currentPage]);
 
   const fetchPrayers = async () => {
     try {
@@ -37,9 +38,6 @@ export default function PrayerManagement() {
         page: currentPage,
         limit: 10,
       };
-      if (filterStatus !== 'all') {
-        params.status = filterStatus;
-      }
       const response = await apiClient.get('/admin/prayers', {
         params,
         headers: {
@@ -79,7 +77,7 @@ export default function PrayerManagement() {
                   Authorization: `Bearer ${token}`,
                 },
               });
-              fetchPrayers();
+              setPrayers(prayers.filter(p => p.id !== prayerId));
             } catch (err) {
               setError('Failed to delete prayer');
               console.error('Prayer delete error:', err);
@@ -90,27 +88,6 @@ export default function PrayerManagement() {
     );
   };
 
-  const handleApproveReject = async (prayerId, isApproved) => {
-    if (isReadOnlyAdmin) return;
-    try {
-      await apiClient.patch(
-        `/admin/prayers/${prayerId}`,
-        { is_approved: isApproved },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      fetchPrayers();
-      if (selectedPrayer && selectedPrayer.id === prayerId) {
-        setSelectedPrayer({ ...selectedPrayer, is_approved: isApproved });
-      }
-    } catch (err) {
-      setError(`Failed to ${isApproved ? 'approve' : 'reject'} prayer`);
-      console.error('Prayer update error:', err);
-    }
-  };
 
   const openModal = async (prayer) => {
     setSelectedPrayer(prayer);
@@ -281,20 +258,6 @@ export default function PrayerManagement() {
               <Text style={styles.closeModalText}>Close</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.approveButton, (!selectedPrayer.is_approved && !isReadOnlyAdmin) ? {} : styles.disabledButton]}
-              onPress={() => handleApproveReject(selectedPrayer.id, true)}
-              disabled={selectedPrayer.is_approved || isReadOnlyAdmin}
-            >
-              <Text style={styles.approveText}>Approve</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.rejectButton, (selectedPrayer.is_approved && !isReadOnlyAdmin) ? {} : styles.disabledButton]}
-              onPress={() => handleApproveReject(selectedPrayer.id, false)}
-              disabled={!selectedPrayer.is_approved || isReadOnlyAdmin}
-            >
-              <Text style={styles.rejectText}>Reject</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={[styles.deleteModalButton, isReadOnlyAdmin && styles.disabledButton]}
               onPress={() => {
                 handleDeletePrayer(selectedPrayer.id);
@@ -323,26 +286,6 @@ export default function PrayerManagement() {
     <View style={styles.container}>
       <Text style={styles.title}>Prayer Management</Text>
 
-      <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[styles.filterButton, filterStatus === 'all' && styles.activeFilter]}
-          onPress={() => setFilterStatus('all')}
-        >
-          <Text style={[styles.filterText, filterStatus === 'all' && styles.activeFilterText]}>All</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterButton, filterStatus === 'approved' && styles.activeFilter]}
-          onPress={() => setFilterStatus('approved')}
-        >
-          <Text style={[styles.filterText, filterStatus === 'approved' && styles.activeFilterText]}>Approved</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterButton, filterStatus === 'unapproved' && styles.activeFilter]}
-          onPress={() => setFilterStatus('unapproved')}
-        >
-          <Text style={[styles.filterText, filterStatus === 'unapproved' && styles.activeFilterText]}>Unapproved</Text>
-        </TouchableOpacity>
-      </View>
 
       {error && (
         <Text style={styles.errorText}>{error}</Text>

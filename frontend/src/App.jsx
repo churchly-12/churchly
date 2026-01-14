@@ -31,6 +31,7 @@ import Testimonials from "./pages/users/Testimonials";
 import NewTestimonial from "./pages/users/NewTestimonial";
 import CommunityPage from "./pages/users/CommunityPage";
 import Profile from "./pages/users/Profile";
+import MyPrayerRequests from "./pages/users/MyPrayerRequests";
 import EditFullName from "./pages/users/edit/EditFullName";
 import EditEmail from "./pages/users/edit/EditEmail";
 import EditPhone from "./pages/users/edit/EditPhone";
@@ -44,6 +45,7 @@ import ContactSupport from "./pages/users/settings/ContactSupport";
 import ReportProblem from "./pages/users/settings/ReportProblem";
 import DeleteAccount from "./pages/users/settings/DeleteAccount";
 import Logout from "./pages/users/settings/Logout";
+import MyTestimonials from "./pages/users/settings/MyTestimonials";
 // Admin imports
 import AdminLanding from "./pages/admin/AdminLanding";
 import UserManagement from "./pages/admin/UserManagement";
@@ -221,6 +223,15 @@ function AppContent() {
                 <BottomNav />
               </>
             } />
+            <Route path="/users/my-prayers" element={
+              <>
+                <TopBar />
+                <div className="p-4 pb-20 min-h-screen bg-[#f7efe6] text-[#3b2a20] pt-20">
+                  <MyPrayerRequests />
+                </div>
+                <BottomNav />
+              </>
+            } />
             <Route path="/users/testimonials" element={
               <>
                 <TopBar />
@@ -370,6 +381,15 @@ function AppContent() {
                 <TopBar />
                 <div className="p-4 pb-20 min-h-screen bg-[#f7efe6] text-[#3b2a20] pt-20">
                   <Logout />
+                </div>
+                <BottomNav />
+              </>
+            } />
+            <Route path="/users/settings/my-testimonials" element={
+              <>
+                <TopBar />
+                <div className="p-4 pb-20 min-h-screen bg-[#f7efe6] text-[#3b2a20] pt-20">
+                  <MyTestimonials />
                 </div>
                 <BottomNav />
               </>

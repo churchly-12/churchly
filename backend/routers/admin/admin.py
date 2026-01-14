@@ -14,7 +14,7 @@ from database import (
     parishes_collection,
     db
 )
-from dependencies.auth import get_current_user
+from auth import get_current_user
 from utils.permissions import require_permission
 from utils.security import hash_password
 from services.audit_service import log_admin_action
@@ -554,11 +554,28 @@ async def delete_prayer(
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Prayer not found")
 
-        # Also soft delete associated responses (or delete them)
+        # Also soft delete associated responses, reactions, and notifications
         await prayer_responses_collection.update_many(
             {"prayer_id": ObjectId(prayer_id)},
             {"$set": {"is_deleted": True, "deleted_at": datetime.utcnow()}}
         )
+
+        await prayer_reactions_collection.update_many(
+            {"prayer_id": ObjectId(prayer_id)},
+            {"$set": {"is_deleted": True, "deleted_at": datetime.utcnow()}}
+        )
+
+        await notifications_collection.update_many(
+            {"related_id": prayer_id},
+            {"$set": {"is_deleted": True, "deleted_at": datetime.utcnow()}}
+        )
+
+        # Emit SSE delete event
+        from routers.prayer_requests import event_queue
+        await event_queue.put({
+            "type": "prayer_deleted",
+            "prayer_id": prayer_id
+        })
 
         # Audit logging
         await log_admin_action(

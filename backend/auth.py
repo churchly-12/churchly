@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Form, Request
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm, HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 import json
@@ -7,15 +7,17 @@ from database import users_collection, password_reset_tokens_collection, db
 
 # Temporary signups collection for unverified users
 pending_users_collection = db.pending_users
-from utils.security import hash_password, verify_password, create_jwt
+from utils.security import hash_password, verify_password, create_jwt, SECRET_KEY, ALGORITHM
 from datetime import datetime, timedelta
 from bson import ObjectId
 import uuid
 import random
 import os
 from services.email_service import send_email
+from jose import JWTError, jwt
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+security = HTTPBearer()
 
 router = APIRouter(tags=["Authentication"])
 
@@ -117,6 +119,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
     token = create_jwt(str(user["_id"]))
+    print("TOKEN CREATED:", token)
 
     return {
         "access_token": token,
@@ -220,3 +223,15 @@ async def verify_email(payload: VerifyEmailSchema):
     token = create_jwt(user_id)
 
     return {"message": "Email verified successfully. Account created.", "token": token, "user_id": user_id}
+
+# JWT Dependency for FastAPI
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return user_id
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")

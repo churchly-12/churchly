@@ -30,6 +30,11 @@ export default function SettingsScreen({ navigation }) {
     { label: 'Report a Problem', icon: 'warning' },
   ];
 
+  const myPosts = [
+    { label: 'My Prayer Requests', icon: 'heart' },
+    { label: 'My Testimonials', icon: 'chatbubble' },
+  ];
+
   const renderSettingItem = (item, index, onPress, isDestructive = false) => (
     <TouchableOpacity
       key={index}
@@ -82,6 +87,8 @@ export default function SettingsScreen({ navigation }) {
       'Notifications': 'NotificationSettings',
       'Contact Support': 'ContactSupport',
       'Report a Problem': 'ReportProblem',
+      'My Prayer Requests': 'MyPrayerRequests',
+      'My Testimonials': 'MyTestimonials',
       'Delete My Account': 'DeleteAccount',
       'Logout': 'Logout',
     };
@@ -153,6 +160,9 @@ export default function SettingsScreen({ navigation }) {
 
         {/* Preferences */}
         {renderSection('Preferences', preferences, handleItemPress)}
+
+        {/* My Posts */}
+        {renderSection('My Posts', myPosts, handleItemPress)}
 
         {/* Help & Support */}
         <View style={styles.section}>

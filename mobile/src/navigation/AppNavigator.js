@@ -37,6 +37,8 @@ import ChangePasswordScreen from '../screens/users/ChangePasswordScreen';
 import NotificationSettingsScreen from '../screens/users/NotificationSettingsScreen';
 import ContactSupportScreen from '../screens/users/ContactSupportScreen';
 import ReportProblemScreen from '../screens/users/ReportProblemScreen';
+import MyPrayerRequestsScreen from '../screens/users/MyPrayerRequestsScreen';
+import MyTestimonialsScreen from '../screens/users/MyTestimonialsScreen';
 import DeleteAccountScreen from '../screens/users/DeleteAccountScreen';
 import LogoutScreen from '../screens/users/LogoutScreen';
 // Admin screens
@@ -68,6 +70,8 @@ function HomeStack() {
       <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       <Stack.Screen name="ContactSupport" component={ContactSupportScreen} />
       <Stack.Screen name="ReportProblem" component={ReportProblemScreen} />
+      <Stack.Screen name="MyPrayerRequests" component={MyPrayerRequestsScreen} />
+      <Stack.Screen name="MyTestimonials" component={MyTestimonialsScreen} />
       <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
       <Stack.Screen name="Logout" component={LogoutScreen} />
     </Stack.Navigator>

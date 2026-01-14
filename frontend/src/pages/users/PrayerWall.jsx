@@ -72,6 +72,8 @@ export default function PrayerWall() {
           // For new prayers, we might need to fetch or add, but since it's approved, perhaps refetch
           // For simplicity, refetch the list
           loadPrayers();
+        } else if (data.type === 'prayer_deleted') {
+          updatedPrayers = updatedPrayers.filter(p => p.id !== data.prayer_id);
         }
 
         return updatedPrayers;
@@ -120,7 +122,7 @@ export default function PrayerWall() {
               <div
                 key={prayer._id}
                 className="bg-gray-50 dark:bg-[#181818] rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => console.log("Open request details:", prayer._id)}
+                onClick={() => {}}
               >
                 <div className="flex flex-col">
                   <p className="font-semibold text-gray-800 dark:text-white">{prayer.anonymous ? "Anonymous" : prayer.userName}</p>

@@ -46,3 +46,8 @@ export async function markNotificationsRead() {
   const res = await apiClient.post(`${API_BASE}/notifications/mark-read`);
   return res.data;
 }
+
+export async function deletePrayer(id) {
+  const res = await apiClient.delete(`${API_BASE}/${id}`);
+  return res.data;
+}

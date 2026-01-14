@@ -23,7 +23,7 @@ export default function LoginScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.logoContainer}>
-        <Image source={require('../../../assets/church.png')} style={styles.logo} />
+        <Image source={require('../../../assets/churchly-logo.png')} style={styles.logo} />
       </View>
 
       <Text style={styles.title}>Welcome Back</Text>
@@ -91,8 +91,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   logo: {
-    width: 120,
-    height: 120,
+    width: 180,
+    height: 180,
   },
   title: {
     fontSize: 24,

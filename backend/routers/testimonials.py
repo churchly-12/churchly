@@ -3,10 +3,11 @@ from fastapi.responses import StreamingResponse
 from database import testimonies_collection, testimony_reactions_collection, notifications_collection, users_collection
 from datetime import datetime, timedelta
 from bson import ObjectId
+from bson.errors import InvalidId
 from models.testimony import TestimonyCreate
 from models.testimony_reaction import TestimonyReactionCreate
 from models.notification import NotificationCreate
-from dependencies.auth import get_current_user
+from auth import get_current_user
 import asyncio
 import json
 from jose import JWTError, jwt
@@ -16,6 +17,9 @@ router = APIRouter(prefix="/api/testimonies", tags=["Testimonies"])
 
 # Global event queue for SSE
 testimony_event_queue = asyncio.Queue()
+
+# Global for cleanup tracking
+last_cleanup = None
 
 def convert_objectids(obj):
     if isinstance(obj, ObjectId):
@@ -27,12 +31,35 @@ def convert_objectids(obj):
     else:
         return obj
 
+async def cleanup_expired_testimonies():
+    global last_cleanup
+    now = datetime.utcnow()
+    if last_cleanup is None or (now - last_cleanup) > timedelta(hours=1):
+        # Delete expired testimonies
+        expired_testimonies = testimonies_collection.find({"expires_at": {"$lt": now}})
+        expired_ids = []
+        async for t in expired_testimonies:
+            expired_ids.append(t["_id"])
+        if expired_ids:
+            # Delete reactions and notifications
+            for tid in expired_ids:
+                tid_str = str(tid)
+                await testimony_reactions_collection.delete_many({"testimony_id": tid_str})
+                await notifications_collection.delete_many({"related_id": tid_str})
+            # Delete testimonies
+            await testimonies_collection.delete_many({"_id": {"$in": expired_ids}})
+            print(f"Deleted {len(expired_ids)} expired testimonies")
+        last_cleanup = now
+
 @router.get("/")
-async def get_testimonies(user_id: str = Depends(get_current_user)):
+async def get_all_testimonies(user_id: str = Depends(get_current_user)):
     try:
-        testimonies_cursor = testimonies_collection.find({"expires_at": {"$gt": datetime.utcnow()}}).sort("created_at", -1)
+        await cleanup_expired_testimonies()
+        testimonies_cursor = testimonies_collection.find({"is_deleted": {"$ne": True}}).sort("created_at", -1)
         testimonies = []
+        count = 0
         async for t in testimonies_cursor:
+            count += 1
             t["id"] = str(t["_id"])
             del t["_id"]
             # Add userName
@@ -42,7 +69,7 @@ async def get_testimonies(user_id: str = Depends(get_current_user)):
                 user = await users_collection.find_one({"_id": ObjectId(t["user_id"])})
                 t["userName"] = user.get("full_name", "Unknown") if user else "Unknown"
             # Add reactions
-            reactions_cursor = testimony_reactions_collection.find({"testimony_id": t["id"]})
+            reactions_cursor = testimony_reactions_collection.find({"testimony_id": t["id"], "is_deleted": {"$ne": True}})
             reaction_counts = {"praise": 0, "amen": 0, "thanks": 0}
             user_reaction = None
             async for r in reactions_cursor:
@@ -51,13 +78,46 @@ async def get_testimonies(user_id: str = Depends(get_current_user)):
                     user_reaction = r["reaction"]
             t["reactions"] = reaction_counts
             t["userReaction"] = user_reaction
-            # Remove ObjectId fields
-            t.pop("user_id", None)
             testimonies.append(t)
+        print(f"Found {count} my testimonies for user {user_id}")
         return {"success": True, "data": convert_objectids(testimonies)}
     except Exception as e:
         print(e)
         return {"success": False, "message": "Failed to fetch testimonies"}
+
+@router.get("/my")
+async def get_my_testimonies(user_id: str = Depends(get_current_user)):
+    try:
+        await cleanup_expired_testimonies()
+        testimonies_cursor = testimonies_collection.find({"user_id": user_id, "expires_at": {"$gt": datetime.utcnow()}, "is_deleted": {"$ne": True}}).sort("created_at", -1)
+        testimonies = []
+        count = 0
+        async for t in testimonies_cursor:
+            count += 1
+            t["id"] = str(t["_id"])
+            del t["_id"]
+            # Add userName
+            if t.get("is_anonymous", False):
+                t["userName"] = "Anonymous"
+            else:
+                user = await users_collection.find_one({"_id": ObjectId(t["user_id"])})
+                t["userName"] = user.get("full_name", "Unknown") if user else "Unknown"
+            # Add reactions
+            reactions_cursor = testimony_reactions_collection.find({"testimony_id": t["id"], "is_deleted": {"$ne": True}})
+            reaction_counts = {"praise": 0, "amen": 0, "thanks": 0}
+            user_reaction = None
+            async for r in reactions_cursor:
+                reaction_counts[r["reaction"]] += 1
+                if r["user_id"] == user_id:
+                    user_reaction = r["reaction"]
+            t["reactions"] = reaction_counts
+            t["userReaction"] = user_reaction
+            testimonies.append(t)
+        print(f"Found {count} testimonies")
+        return {"success": True, "data": convert_objectids(testimonies)}
+    except Exception as e:
+        print(e)
+        return {"success": False, "message": "Failed to fetch my testimonies"}
 
 @router.post("/post")
 async def create_testimony(
@@ -106,7 +166,7 @@ async def create_testimony(
 
 @router.get("/{testimony_id}")
 async def get_testimony(testimony_id: str, user_id: str = Depends(get_current_user)):
-    testimony = await testimonies_collection.find_one({"_id": ObjectId(testimony_id), "expires_at": {"$gt": datetime.utcnow()}})
+    testimony = await testimonies_collection.find_one({"_id": ObjectId(testimony_id), "expires_at": {"$gt": datetime.utcnow()}, "is_deleted": {"$ne": True}})
     if not testimony:
         raise HTTPException(status_code=404, detail="Testimony not found")
 
@@ -119,7 +179,7 @@ async def get_testimony(testimony_id: str, user_id: str = Depends(get_current_us
         user = await users_collection.find_one({"_id": ObjectId(testimony["user_id"])})
         testimony["userName"] = user.get("full_name", "Unknown") if user else "Unknown"
     # Add reactions
-    reactions_cursor = testimony_reactions_collection.find({"testimony_id": testimony["id"]})
+    reactions_cursor = testimony_reactions_collection.find({"testimony_id": testimony["id"], "is_deleted": {"$ne": True}})
     reaction_counts = {"praise": 0, "amen": 0, "thanks": 0}
     user_reaction = None
     async for r in reactions_cursor:
@@ -132,7 +192,7 @@ async def get_testimony(testimony_id: str, user_id: str = Depends(get_current_us
     testimony.pop("user_id", None)
     return {"success": True, "testimony": convert_objectids(testimony)}
 
-@router.post("/react/{testimony_id}")
+@router.post("/{testimony_id}/react")
 async def react_to_testimony(
     testimony_id: str,
     payload: TestimonyReactionCreate,
@@ -140,7 +200,7 @@ async def react_to_testimony(
 ):
     try:
         # Check if testimony exists
-        testimony = await testimonies_collection.find_one({"_id": ObjectId(testimony_id)})
+        testimony = await testimonies_collection.find_one({"_id": ObjectId(testimony_id), "is_deleted": {"$ne": True}})
         if not testimony:
             raise HTTPException(status_code=404, detail="Testimony not found")
         # For now, skip existence check since testimonies are local
@@ -238,3 +298,34 @@ async def stream_testimony_events(token: str = None):
                 yield "data: {\"type\": \"ping\"}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@router.delete("/{testimony_id}")
+async def delete_testimony(
+    testimony_id: str,
+    current_user=Depends(get_current_user)
+):
+    tid = ObjectId(testimony_id)
+
+    testimony = await testimonies_collection.find_one({"_id": tid})
+    if not testimony:
+        raise HTTPException(status_code=404, detail="Testimony not found")
+
+    if testimony["user_id"] != current_user:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Delete reactions
+    await testimony_reactions_collection.delete_many({"testimony_id": testimony_id})
+
+    # Delete notifications
+    await notifications_collection.delete_many({"related_id": testimony_id})
+
+    # Delete testimony
+    await testimonies_collection.delete_one({"_id": tid})
+
+    # Emit SSE delete event
+    await testimony_event_queue.put({
+        "type": "testimony_deleted",
+        "testimony_id": testimony_id
+    })
+
+    return {"success": True, "message": "Testimony deleted"}

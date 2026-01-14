@@ -9,6 +9,8 @@ class PrayerReaction(BaseModel):
     prayer_id: str
     user_id: str
     reaction: ReactionType
+    is_deleted: bool = False
+    deleted_at: Optional[datetime] = None
     created_at: datetime = datetime.utcnow()
 
 class PrayerReactionCreate(BaseModel):

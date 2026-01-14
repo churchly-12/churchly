@@ -8,7 +8,7 @@ from models.prayer import PrayerCreate
 from models.prayer_response import PrayerResponseCreate
 from models.prayer_reaction import PrayerReactionCreate
 from models.notification import NotificationCreate
-from dependencies.auth import get_current_user
+from auth import get_current_user
 from utils.permissions import require_permission
 import asyncio
 import json
@@ -36,10 +36,7 @@ async def get_prayers(
     user_id: str = Depends(get_current_user)
 ):
     try:
-        query = {
-            "is_approved": True,
-            "expires_at": {"$gt": datetime.utcnow()}
-        }
+        query = {"expires_at": {"$gt": datetime.utcnow()}, "is_deleted": {"$ne": True}}
         if parish_id:
             query["parish_id"] = ObjectId(parish_id)
         prayers_cursor = prayers_collection.find(query).sort("created_at", -1)
@@ -59,7 +56,7 @@ async def get_prayers(
             p["approved"] = p.get("is_approved", True)
             p["anonymous"] = p.get("is_anonymous", False)
             # Add reactions
-            reactions_cursor = prayer_reactions_collection.find({"prayer_id": ObjectId(p["id"])})
+            reactions_cursor = prayer_reactions_collection.find({"prayer_id": ObjectId(p["id"]), "is_deleted": {"$ne": True}})
             reaction_counts = {"prayed": 0, "amen": 0, "peace": 0}
             user_reaction = None
             async for r in reactions_cursor:
@@ -69,7 +66,6 @@ async def get_prayers(
             p["reactions"] = reaction_counts
             p["userReaction"] = user_reaction
             # Remove ObjectId fields that can't be serialized
-            p.pop("user_id", None)
             p.pop("parish_id", None)
             prayers.append(p)
         return {"success": True, "data": convert_objectids(prayers)}
@@ -120,8 +116,8 @@ async def get_prayer_with_responses(
 ):
     prayer = await prayers_collection.find_one({
         "_id": ObjectId(prayer_id),
-        "is_approved": True,
-        "expires_at": {"$gt": datetime.utcnow()}
+        "expires_at": {"$gt": datetime.utcnow()},
+        "is_deleted": {"$ne": True}
     })
     if not prayer:
         raise HTTPException(status_code=404, detail="Prayer request has expired or does not exist")
@@ -130,7 +126,8 @@ async def get_prayer_with_responses(
     query = {
         "prayer_id": ObjectId(prayer_id),
         "is_approved": True,
-        "expires_at": {"$gt": datetime.utcnow()}
+        "expires_at": {"$gt": datetime.utcnow()},
+        "is_deleted": {"$ne": True}
     }
     if since:
         query["created_at"] = {"$gt": since}
@@ -176,7 +173,7 @@ async def respond_to_prayer(
 ):
     await require_permission(user_id, "respond_prayer")
 
-    prayer = await prayers_collection.find_one({"_id": ObjectId(prayer_id), "is_approved": True})
+    prayer = await prayers_collection.find_one({"_id": ObjectId(prayer_id), "is_deleted": {"$ne": True}})
     if not prayer:
         raise HTTPException(status_code=404, detail="Prayer not found")
 
@@ -220,8 +217,8 @@ async def react_to_prayer(
         # Check if prayer exists and is active
         prayer = await prayers_collection.find_one({
             "_id": ObjectId(prayer_id),
-            "is_approved": True,
-            "expires_at": {"$gt": datetime.utcnow()}
+            "expires_at": {"$gt": datetime.utcnow()},
+            "is_deleted": {"$ne": True}
         })
         if not prayer:
             raise HTTPException(status_code=404, detail="Prayer not found or expired")
@@ -296,6 +293,49 @@ async def react_to_prayer(
         print(e)
         return {"success": False, "message": "Failed to process reaction"}
 
+@router.get("/my-prayers")
+async def get_my_prayers(user_id: str = Depends(get_current_user)):
+    print(f"MY-PRAYERS ENDPOINT HIT - User ID: {user_id}")
+    try:
+        query = {"user_id": ObjectId(user_id), "is_deleted": {"$ne": True}}
+        print(f"Query: {query}")
+        prayers_cursor = prayers_collection.find(query).sort("created_at", -1)
+        prayers = []
+        async for p in prayers_cursor:
+            p["id"] = str(p["_id"])
+            del p["_id"]
+            # Add userName
+            if p.get("is_anonymous", False):
+                p["userName"] = "Anonymous"
+            else:
+                user = await users_collection.find_one({"_id": ObjectId(p["user_id"])})
+                p["userName"] = user.get("full_name", "Unknown") if user else "Unknown"
+            # Map fields
+            p["requestText"] = p["content"]
+            p["createdAt"] = p["created_at"]
+            p["approved"] = True  # Since all are approved
+            p["anonymous"] = p.get("is_anonymous", False)
+            # Add reactions
+            reactions_cursor = prayer_reactions_collection.find({"prayer_id": ObjectId(p["id"]), "is_deleted": {"$ne": True}})
+            reaction_counts = {"prayed": 0, "amen": 0, "peace": 0}
+            user_reaction = None
+            async for r in reactions_cursor:
+                reaction_counts[r["reaction"]] += 1
+                if r["user_id"] == user_id:
+                    user_reaction = r["reaction"]
+            p["reactions"] = reaction_counts
+            p["userReaction"] = user_reaction
+            # Remove ObjectId fields that can't be serialized
+            p.pop("parish_id", None)
+            prayers.append(p)
+        print(f"Found {len(prayers)} prayers for user {user_id}")
+        return {"success": True, "data": convert_objectids(prayers)}
+    except Exception as e:
+        print(f"Error in my-prayers: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": "Failed to fetch prayers"}
+
 @router.get("/stream")
 async def stream_prayer_events(token: str = None):
     # For SSE, auth via query param since EventSource can't send headers
@@ -323,7 +363,7 @@ async def stream_prayer_events(token: str = None):
 @router.get("/notifications")
 async def get_notifications(user_id: str = Depends(get_current_user)):
     try:
-        cursor = notifications_collection.find({"user_id": user_id}).sort("created_at", -1)
+        cursor = notifications_collection.find({"user_id": user_id, "is_deleted": {"$ne": True}}).sort("created_at", -1)
         notifications = []
         async for n in cursor:
             n["id"] = str(n["_id"])
@@ -345,3 +385,53 @@ async def mark_notifications_read(user_id: str = Depends(get_current_user)):
     except Exception as e:
         print(e)
         return {"success": False, "message": "Failed to mark notifications"}
+
+@router.delete("/{prayer_id}")
+async def delete_prayer(
+    prayer_id: str,
+    current_user=Depends(get_current_user)
+):
+    print(f"DELETE PRAYER HIT - ID: {prayer_id}")
+    print(f"USER ID: {current_user}")
+
+    pid = ObjectId(prayer_id)
+
+    prayer = await prayers_collection.find_one({"_id": pid})
+    if not prayer:
+        print(f"PRAYER NOT FOUND: {prayer_id}")
+        raise HTTPException(status_code=404, detail="Prayer not found")
+
+    print("PRAYER FOUND")
+    print("PRAYER USER ID:", prayer["user_id"], type(prayer["user_id"]))
+    print("REQUEST USER ID:", current_user, type(current_user))
+
+    if prayer["user_id"] != ObjectId(current_user):
+        print(f"UNAUTHORIZED: User {current_user} cannot delete prayer {prayer_id}")
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    print(f"DELETING PRAYER: {prayer_id}")
+
+    # 1️⃣ Delete responses
+    responses_result = await prayer_responses_collection.delete_many({"prayer_id": pid})
+    print(f"RESPONSES DELETED: {responses_result.deleted_count}")
+
+    # 2️⃣ Delete reactions
+    reactions_result = await prayer_reactions_collection.delete_many({"prayer_id": pid})
+    print(f"REACTIONS DELETED: {reactions_result.deleted_count}")
+
+    # 3️⃣ Delete notifications
+    notifications_result = await notifications_collection.delete_many({"prayer_id": pid})
+    print(f"NOTIFICATIONS DELETED: {notifications_result.deleted_count}")
+
+    # 4️⃣ Delete prayer
+    prayer_result = await prayers_collection.delete_one({"_id": pid})
+    print(f"PRAYER DELETED: {prayer_result.deleted_count}")
+
+    # 5️⃣ Emit SSE delete event
+    await event_queue.put({
+        "type": "prayer_deleted",
+        "prayer_id": prayer_id
+    })
+
+    print(f"PRAYER {prayer_id} DELETED SUCCESSFULLY")
+    return {"success": True, "message": "Prayer deleted"}

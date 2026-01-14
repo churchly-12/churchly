@@ -8,6 +8,20 @@ const apiClient = axios.create({
   timeout: 10000,
 });
 
+// Log requests and responses
+apiClient.interceptors.request.use((config) => {
+  console.log(`API REQUEST: ${config.method.toUpperCase()} ${config.url}`);
+  return config;
+});
+
+apiClient.interceptors.response.use((response) => {
+  console.log(`API RESPONSE: ${response.config.method.toUpperCase()} ${response.config.url} - ${response.status}`);
+  return response;
+}, (error) => {
+  console.log(`API ERROR: ${error.config?.method.toUpperCase()} ${error.config?.url} - ${error.response?.status || error.message}`);
+  return Promise.reject(error);
+});
+
 // REQUEST: Attach token
 apiClient.interceptors.request.use(
   async (config) => {

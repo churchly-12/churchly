@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, Modal, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, Modal, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import apiClient from '../../api/apiClient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import AdminTopBar from '../../components/AdminTopBar';
 
 const ImagePreviewModal = ({ image, onClose }) => {
@@ -25,9 +25,17 @@ export default function AdminYouthGroups() {
   const [pinnedAnnouncement, setPinnedAnnouncement] = useState("Youth Meet happens on the first Sunday of every month.");
   const [isEditingPinned, setIsEditingPinned] = useState(false);
 
-  const [announcements, setAnnouncements] = useState([]);
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [announcements, setAnnouncements] = useState([
+    { text: "Youth choir practice will resume from next week.", image: null },
+    { text: "Registrations open for Youth Retreat 2025.", image: null },
+    { text: "Bible study session moved to Hall B.", image: null }
+  ]);
+  const [events, setEvents] = useState([
+    { title: "Youth Retreat", date: "Jan 12" },
+    { title: "Praise & Worship Practice", date: "Every Friday" },
+    { title: "Bible Study", date: "Every Tuesday" },
+    { title: "Monthly Youth Meet", date: "First Sunday of every month" }
+  ]);
 
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   const [newAnnouncement, setNewAnnouncement] = useState({ text: "", image: null });
@@ -53,27 +61,44 @@ export default function AdminYouthGroups() {
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
 
-  // Fetch data from API on component mount
+  // Load data from AsyncStorage on component mount
   useEffect(() => {
-    fetchData();
+    const loadData = async () => {
+      try {
+        const data = await AsyncStorage.getItem('youthGroupsData');
+        if (data) {
+          const parsed = JSON.parse(data);
+          setPinnedAnnouncement(parsed.pinnedAnnouncement || pinnedAnnouncement);
+          setAnnouncements(parsed.announcements || announcements);
+          setEvents(parsed.events || events);
+          setLeaders(parsed.leaders || leaders);
+          setContact(parsed.contact || contact);
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    };
+    loadData();
   }, []);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [announcementsRes, eventsRes] = await Promise.all([
-        apiClient.get('/announcements'),
-        apiClient.get('/events')
-      ]);
-      setAnnouncements(announcementsRes.data);
-      setEvents(eventsRes.data);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      Alert.alert('Error', 'Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Save data to AsyncStorage whenever state changes
+  useEffect(() => {
+    const saveData = async () => {
+      const data = {
+        pinnedAnnouncement,
+        announcements,
+        events,
+        leaders,
+        contact
+      };
+      try {
+        await AsyncStorage.setItem('youthGroupsData', JSON.stringify(data));
+      } catch (error) {
+        console.error('Error saving data:', error);
+      }
+    };
+    saveData();
+  }, [pinnedAnnouncement, announcements, events, leaders, contact]);
 
   const pickImage = async (setImage) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -98,15 +123,8 @@ export default function AdminYouthGroups() {
     <View style={styles.container}>
       <AdminTopBar />
       <ScrollView style={styles.scrollContainer}>
-        {loading ? (
-          <View style={styles.loading}>
-            <ActivityIndicator size="large" color="#3b2a20" />
-            <Text style={styles.loadingText}>Loading...</Text>
-          </View>
-        ) : (
-          <>
-            <Text style={styles.title}>Youth Groups Management</Text>
-            <Text style={styles.intro}>Manage youth groups, announcements, events, and coordinators for the parish youth ministry.</Text>
+        <Text style={styles.title}>Youth Groups Management</Text>
+        <Text style={styles.intro}>Manage youth groups, announcements, events, and coordinators for the parish youth ministry.</Text>
 
       {/* Announcements */}
      <View style={styles.section}>
@@ -149,43 +167,36 @@ export default function AdminYouthGroups() {
               ) : (
                 <Text style={styles.cardText}>• {announcement.text}</Text>
               )}
-              {announcement.image && (
-                <TouchableOpacity onPress={() => setPreviewImage(announcement.image)}>
-                  <Image source={{ uri: announcement.image }} style={styles.announcementImage} />
-                </TouchableOpacity>
-              )}
               <View style={styles.cardActions}>
-                 <TouchableOpacity onPress={() => pickImage((uri) => {
-                  const newAnnouncements = [...announcements];
-                  newAnnouncements[index].image = uri;
-                  setAnnouncements(newAnnouncements);
-                  // Optionally save immediately or wait for save
-                })} style={styles.imageButton}>
-                  <Text style={styles.buttonText}>Pick Image</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={async () => {
-                  if (editingAnnouncement === index) {
-                    try {
-                      await apiClient.put(`/announcements/${announcement.id}`, { text: announcement.text, image: announcement.image });
-                      setEditingAnnouncement(null);
-                      fetchData();
-                    } catch (error) {
-                      Alert.alert('Error', 'Failed to update announcement');
-                    }
-                  } else {
-                    setEditingAnnouncement(index);
-                  }
-                }} style={styles.actionButton}>
+                <TouchableOpacity onPress={() => setEditingAnnouncement(editingAnnouncement === index ? null : index)} style={styles.actionButton}>
                   <Text style={styles.actionText}>{editingAnnouncement === index ? 'Save Text' : 'Edit Text'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={async () => {
+                  const announcementToSave = announcements[index];
                   try {
-                    await apiClient.delete(`/announcements/${announcement.id}`);
-                    fetchData();
+                    const announcementResponse = await fetch('http://localhost:8000/announcements', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        text: announcementToSave.text,
+                      }),
+                    });
+                     
+                    if (announcementResponse.ok) {
+                      Alert.alert('Success', 'Announcement posted successfully!');
+                    } else {
+                      Alert.alert('Error', 'Failed to post announcement.');
+                    }
                   } catch (error) {
-                    Alert.alert('Error', 'Failed to delete announcement');
+                    console.error('Error:', error);
+                    Alert.alert('Error', 'Failed to post announcement.');
                   }
-                }} style={styles.deleteButton}>
+                }} style={styles.saveButton}>
+                  <Text style={styles.buttonText}>Save Announcement</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setAnnouncements(announcements.filter((_, i) => i !== index))} style={styles.deleteButton}>
                   <Text style={styles.deleteText}>Delete</Text>
                 </TouchableOpacity>
               </View>
@@ -201,29 +212,21 @@ export default function AdminYouthGroups() {
               style={styles.input}
               placeholder="New announcement..."
             />
-            <TouchableOpacity onPress={() => pickImage((uri) => setNewAnnouncement({ ...newAnnouncement, image: uri }))} style={styles.imageButton}>
-              <Text style={styles.buttonText}>Pick Image</Text>
-            </TouchableOpacity>
-            {newAnnouncement.image && (
-              <Image source={{ uri: newAnnouncement.image }} style={styles.newImage} />
-            )}
-            <View style={styles.buttonRow}>
-              <TouchableOpacity onPress={async () => {
-                try {
-                  const res = await apiClient.post('/announcements', newAnnouncement);
-                  setAnnouncements(prev => [res.data, ...prev]);
+            {newAnnouncement.text || newAnnouncement.image ? (
+              <View style={styles.buttonRow}>
+                <TouchableOpacity onPress={() => {
+                  setAnnouncements([...announcements, newAnnouncement]);
                   setNewAnnouncement({ text: "", image: null });
                   setIsAddingAnnouncement(false);
-                } catch (error) {
-                  Alert.alert('Error', 'Failed to add announcement');
-                }
-              }} style={styles.addButton}>
-                <Text style={styles.buttonText}>Add</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setNewAnnouncement({ text: "", image: null }); setIsAddingAnnouncement(false); }} style={styles.cancelButton}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
+                  Alert.alert('Success', 'Announcement added');
+                }} style={styles.addButton}>
+                  <Text style={styles.buttonText}>Add</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setNewAnnouncement({ text: "", image: null }); setIsAddingAnnouncement(false); }} style={styles.cancelButton}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </View>
         ) : (
           <TouchableOpacity onPress={() => setIsAddingAnnouncement(true)} style={styles.addItemButton}>
@@ -268,29 +271,10 @@ export default function AdminYouthGroups() {
               </View>
             )}
             <View style={styles.cardActions}>
-              <TouchableOpacity onPress={async () => {
-                if (editingEvent === index) {
-                  try {
-                    await apiClient.put(`/events/${event.id}`, { title: event.title, date: event.date });
-                    setEditingEvent(null);
-                    fetchData();
-                  } catch (error) {
-                    Alert.alert('Error', 'Failed to update event');
-                  }
-                } else {
-                  setEditingEvent(index);
-                }
-              }} style={styles.actionButton}>
+              <TouchableOpacity onPress={() => setEditingEvent(editingEvent === index ? null : index)} style={styles.actionButton}>
                 <Text style={styles.actionText}>{editingEvent === index ? 'Save' : 'Edit'}</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={async () => {
-                try {
-                  await apiClient.delete(`/events/${event.id}`);
-                  fetchData();
-                } catch (error) {
-                  Alert.alert('Error', 'Failed to delete event');
-                }
-              }} style={styles.deleteButton}>
+              <TouchableOpacity onPress={() => setEvents(events.filter((_, i) => i !== index))} style={styles.deleteButton}>
                 <Text style={styles.deleteText}>Delete</Text>
               </TouchableOpacity>
             </View>
@@ -311,23 +295,20 @@ export default function AdminYouthGroups() {
               style={styles.input}
               placeholder="Date..."
             />
-            <View style={styles.buttonRow}>
-              <TouchableOpacity onPress={async () => {
-                try {
-                  const res = await apiClient.post('/events', newEvent);
-                  setEvents(prev => [res.data, ...prev]);
+            {newEvent.title || newEvent.date ? (
+              <View style={styles.buttonRow}>
+                <TouchableOpacity onPress={() => {
+                  setEvents([...events, newEvent]);
                   setNewEvent({ title: "", date: "" });
                   setIsAddingEvent(false);
-                } catch (error) {
-                  Alert.alert('Error', 'Failed to add event');
-                }
-              }} style={styles.addButton}>
-                <Text style={styles.buttonText}>Add</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setNewEvent({ title: "", date: "" }); setIsAddingEvent(false); }} style={styles.cancelButton}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
+                }} style={styles.addButton}>
+                  <Text style={styles.buttonText}>Add</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setNewEvent({ title: "", date: "" }); setIsAddingEvent(false); }} style={styles.cancelButton}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </View>
         ) : (
           <TouchableOpacity onPress={() => setIsAddingEvent(true)} style={styles.addItemButton}>
@@ -396,18 +377,20 @@ export default function AdminYouthGroups() {
               style={styles.input}
               placeholder="Role..."
             />
-            <View style={styles.buttonRow}>
-              <TouchableOpacity onPress={() => {
-                setLeaders([...leaders, newLeader]);
-                setNewLeader({ name: "", role: "" });
-                setIsAddingLeader(false);
-              }} style={styles.addButton}>
-                <Text style={styles.buttonText}>Add</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setNewLeader({ name: "", role: "" }); setIsAddingLeader(false); }} style={styles.cancelButton}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
+            {newLeader.name || newLeader.role ? (
+              <View style={styles.buttonRow}>
+                <TouchableOpacity onPress={() => {
+                  setLeaders([...leaders, newLeader]);
+                  setNewLeader({ name: "", role: "" });
+                  setIsAddingLeader(false);
+                }} style={styles.addButton}>
+                  <Text style={styles.buttonText}>Add</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setNewLeader({ name: "", role: "" }); setIsAddingLeader(false); }} style={styles.cancelButton}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </View>
         ) : (
           <TouchableOpacity onPress={() => setIsAddingLeader(true)} style={styles.addItemButton}>
@@ -454,13 +437,11 @@ export default function AdminYouthGroups() {
         </TouchableOpacity>
       </View>
 
-            {/* Image Preview Modal */}
-            <ImagePreviewModal
-              image={previewImage}
-              onClose={() => setPreviewImage(null)}
-            />
-          </>
-        )}
+        {/* Image Preview Modal */}
+        <ImagePreviewModal
+          image={previewImage}
+          onClose={() => setPreviewImage(null)}
+        />
       </ScrollView>
     </View>
   );
@@ -470,6 +451,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f7efe6',
+  },
+  saveButton: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  imageUploadContainer: {
+    marginTop: 12,
+    padding: 8,
+    backgroundColor: '#fef7ed',
+    borderRadius: 8,
   },
   scrollContainer: {
     padding: 20,

@@ -26,3 +26,8 @@ export async function reactToTestimony(id, reaction) {
   const res = await apiClient.post(`${API_BASE}/react/${id}`, { reaction });
   return res.data;
 }
+
+export async function deleteTestimony(id) {
+  const res = await apiClient.delete(`${API_BASE}/${id}`);
+  return res.data;
+}

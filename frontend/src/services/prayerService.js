@@ -56,3 +56,18 @@ export async function markNotificationsRead() {
   const res = await apiClient.post(`${API_BASE}/notifications/mark-read`);
   return res.data;
 }
+
+export const fetchMyPrayers = async () => {
+  try {
+    const res = await apiClient.get(`${API_BASE}/my-prayers`);
+    return res.data.success ? res.data.data : [];
+  } catch (err) {
+    console.error("Failed to fetch my prayers:", err);
+    return [];
+  }
+};
+
+export async function deletePrayer(id) {
+  const res = await apiClient.delete(`${API_BASE}/${id}`);
+  return res.data;
+}

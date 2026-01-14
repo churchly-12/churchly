@@ -59,8 +59,6 @@ export default function TopBar() {
                   setUnreadCount(0);
                   setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
                 }
-                // For now, just log; later can show dropdown
-                console.log("Notifications:", notifications);
               }}
               className="text-white hover:text-gray-200 transition relative"
             >

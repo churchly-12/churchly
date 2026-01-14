@@ -26,3 +26,18 @@ export async function reactToTestimony(id, reaction) {
   const res = await apiClient.post(`${API_BASE}/react/${id}`, { reaction });
   return res.data;
 }
+
+export const fetchMyTestimonies = async () => {
+  try {
+    const res = await apiClient.get(`${API_BASE}/my`);
+    return res.data.success ? res.data.data : [];
+  } catch (err) {
+    console.error("Failed to fetch my testimonies:", err);
+    return [];
+  }
+};
+
+export async function deleteTestimony(id) {
+  const res = await apiClient.delete(`${API_BASE}/${id}`);
+  return res.data;
+}

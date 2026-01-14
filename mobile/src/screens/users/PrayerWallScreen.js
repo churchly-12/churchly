@@ -121,6 +121,13 @@ export default function PrayerWallScreen({ navigation }) {
         )}
       </ScrollView>
 
+      {/* Refresh Button */}
+      <View style={styles.refreshContainer}>
+        <TouchableOpacity style={styles.refreshButton} onPress={loadPrayers}>
+          <Text style={styles.refreshButtonText}>Refresh Prayers</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Floating Add Button */}
       <TouchableOpacity
         style={styles.addButton}
@@ -261,4 +268,19 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
   },
+ refreshContainer: {
+   paddingHorizontal: 16,
+   paddingBottom: 16,
+ },
+ refreshButton: {
+   backgroundColor: '#6F4E37',
+   padding: 12,
+   borderRadius: 8,
+   alignItems: 'center',
+ },
+ refreshButtonText: {
+   color: 'white',
+   fontSize: 16,
+   fontWeight: '600',
+ },
 });

@@ -12,8 +12,12 @@ export default function TopBar() {
   // Check if we're on main pages that don't need back button
   const isMainPage = route.name === 'Home' || route.name === 'DevotionsMain' || route.name === 'ActivitiesMain' || route.name === 'CommunityMain';
 
+  // Check if we're on a settings-related page
+  const isSettingsPage = route.name === 'Settings' || route.name === 'ChangePassword' || route.name === 'NotificationSettings' || route.name === 'ContactSupport' || route.name === 'ReportProblem' || route.name === 'MyPrayerRequests' || route.name === 'MyTestimonials' || route.name === 'DeleteAccount' || route.name === 'Logout';
+
   const handleSettingsPress = () => {
-    navigation.navigate('Settings');
+    // Navigate to Settings in the Home tab from any tab
+    navigation.navigate('Home', { screen: 'Settings' });
   };
 
   const handleProfilePress = () => {
@@ -42,12 +46,14 @@ export default function TopBar() {
 
         {/* Right side: Settings only */}
         <View style={styles.rightIcons}>
-          <TouchableOpacity
-            onPress={handleSettingsPress}
-            style={styles.iconButton}
-          >
-            <Ionicons name="settings" size={24} color="white" />
-          </TouchableOpacity>
+          {!isSettingsPage && (
+            <TouchableOpacity
+              onPress={handleSettingsPress}
+              style={styles.iconButton}
+            >
+              <Ionicons name="settings" size={24} color="white" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </View>

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from bson import ObjectId
 from datetime import datetime
 from database import events_collection
-from dependencies.auth import get_current_user
+from auth import get_current_user
 
 router = APIRouter()
 
